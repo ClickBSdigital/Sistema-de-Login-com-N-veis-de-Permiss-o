@@ -1,0 +1,383 @@
+https://pt.stackoverflow.com/questions/35092/como-criar-um-sistema-de-controle-de-permiss%C3%B5es
+
+
+Como criar um sistema de controle de permissões
+Perguntada 10 anos, 2 meses atrás
+Modified 6 anos atrás
+Vista 28mil vezes
+7
+
+Tenho um sistema em PHP/HTML e quero implantar um sistema de permissão.
+
+Funcionaria da seguinte maneira:
+
+1) Tenho algumas páginas que algumas funcionalidades só podem vistas por cargos mais altos. Exemplo: tenho uma página de busca, para um usuário normal, quero que ele pesquise somente pelo nome. Já um gerente, teria vários filtros disponíveis.
+
+2) Ter alguma página para setar essas permissões. Usando o exemplo da busca: Administrador vai nessa página e seta determinado usuário para também poder pesquisar por cpf.
+
+Não quero um sistema pronto. Quero alguma ideia para onde ir, o que buscar, se existe algum framework.
+
+
+14
+
+Criando um sistema de permissão
+Primeiro precisamos da tabela de usuários:
+
+usuarios
+  id - INT AUTO_INCREMENT PRIMARY KEY
+  nome - VARCHAR
+  email - VARCHAR
+  senha - VARCHAR
+  ativo - INT (0 - Inativo / 1 - Ativo)
+  nivel - (0 - usuário comum / 1 - Administrador / 2 - Desenvolvedor / 3 - Administrador e Desenvolvedor)
+Se o usuário for um administrador ou desenvolvedor ignore as validações de acesso, da forma que achar melhor.
+
+Agora temos que mapear as páginas do sistema
+
+paginas
+  id - PIRMARY KEY -- Código único que identifique a página (pode até ser o nome do arquivo ou um INT AUTO_INCREMENT)
+  arquivo - VARCHAR -- Nome do arquivo
+  nome - VARCHAR
+  sistema - INT -- (0 - Não / 1 - Sim) é uma página do sistema como por exemplo uma página Erro 404 / Acesso Restrito / Etc...
+Salve todas as páginas do sistema no banco de dados, e coloque no arquivo uma variável com o ID de cada uma
+
+Agora a tabela de acesso:
+
+acesso_paginas
+  usuario_id
+  pagina_id
+  consultar (0 - Não / 1 - Sim)
+  incluir (0 - Não / 1 - Sim)
+  editar (0 - Não / 1 - Sim)
+  excluir (0 - Não / 1 - Sim)
+Utilize o campo consultar, para ver se o usuário tem acesso a essa página, e os demais campos você pode colocar nos botões de inclusão/exclusão e nos campos caso o usuário não possa editar.
+
+Se você quer que cada campo tenha um acesso diferente, para cada usuário, você terá que mapear todos os campos do seu sistema, algo que dá muito trabalho, mas poderia fazer assim:
+
+fields
+  id - INT PRIMARY KEY
+  nome - VARCHAR
+  pagina_id
+Para cada campo de cada página, salve um registro no banco de dados que identifique aquele campo.
+
+E o acesso:
+
+acesso_fields
+  field_id
+  pagina_id
+  usuario_id
+  visivel (0 - Não / 1 - Sim)
+  editavel (0 - Não / 1 - Sim)
+Utilize o campo visivel para exibir o campo no sistema e o campo editável para habilitar ou desabilitar.
+
+Regra
+Sempre que um usuário acessar alguma página, você busca a página na tabela acesso_paginas e verifica se ele tem acesso a aquela página. Se o usuário tiver acesso, você verifica qual o tipo de acesso, e aplica as devidas regras de acordo com o tipo de acesso. Exemplo, se ele só pode consultar a página apenas exiba o necessário com todos os campos desabilitados.
+
+Se você for validar os campos, busque na tabela acesso_fields pelo ID da página e busque todos os campos da página em um único SELECT, e faça uma função para buscar nos dados retornados o campo e as permissões.
+
+Exemplo
+Acesso à página:
+
+$pageid = 36;
+$sql = "SELECT * FROM acesso_paginas WHERE usuario_id = {$_SESSION['user']['id']} AND pagina_id = {$pageid};"
+// Receba o resultado e verifique o tipo de acesso.
+
+if ($res['consultar'] == '0') {
+   header("HTTP/1.1 401 Unauthorized");
+   exit;
+}
+
+.
+.
+.
+
+if ($res['excluir'] == '1') echo '<button type="button" id="excluir" class="button">Excluir</button>';
+Acesso ao campo:
+
+$pageid = 36;
+$sql = "SELECT * FROM acesso_fields WHERE usuario_id = {$_SESSION['user']['id']} AND pagina_id = {$pageid};"
+// Receba os dados
+
+function FieldAccess($dados){
+   // Faça uma função quer percorra o array recebido do baco e retorne os devidos acessos ao campo
+   // Pode usar códigos do tipo
+
+   // 0 - Sem acesso total (não exibe campo)
+   if ($dados[$x]['visivel'] == '0') return 0;  
+
+   // 1 - Acesso visual (apenas exibe o campo, mas não permite editar o valor)
+   if ($dados[$x]['visivel'] == '1' && $dados[$x]['editavel'] == '0' ) return 1; 
+
+   // 2 - Acesso total
+   // if ($dados[$x]['visivel'] == '1' && $dados[$x]['editavel'] == '1' ) return 2; 
+   // Sempre retorne 2 para exibir normalmente os campos que não estiverem 
+   // cadastrados no acesso do usuário
+   return 2;
+}
+
+.
+.
+.
+
+<?php
+  $acesso = FieldAccess(348);
+  if ($acesso > 0){
+?>
+<input type="text" name="cpf" id="cpf" placeholder="Informe o CPF"<?=($acesso == '1' ? ' readonly' : '')?>>
+<?php
+  }
+?>
+
+
+
+
+Obs.: Muito cuidado a excessiva validação de campos, pois pode acabar prejudicando a performance do sistema. Use apenas em casos necessários.
+
+
+
+
+
+==========================
+
+
+4
+
+Estou trabalhando sobre um site em PHP que tem mas o menos 6500 possibilidade de acesso. O principio e um "variação" de um conceito de "Assembly Language" e chamamos isso de XGen.
+
+Cada pagina do site tem um String "Xgen" composto de valores do tipo: Exemplo:
+
+pagina A -> 01000
+pagina B -> 00100
+pagine C -> 00001
+cada usuário tem uma "string" do mesmo tipo. Exemplo:
+
+Marcello -> 01100
+José -> 00001
+Quando Marcello chega na pagina A, os sistema da uma olhado nos 2 valores:
+
+Da pagina -> 01000
+Do usario -> 01100
+resultado: Marcello tem direto de acesso nesta pagina
+
+Mas Marcello, neste exemplo, nao tem acesso na pagina C
+
+Você pode "ameliorar" o principio, usando valores diferentes. Exemplo:
+
+001000 significa simplismente accesso
+002000 significa accesar + editar
+etc...
+No meu sistema, cada Xgen tem 100 valores: para cada página e para cada Sapador-Bombeiro (e um sistema de admin de quarteéis). Eu posso determinar acesso com grau, nível de formação, idade etc.
+
+
+
+
+==========================
+
+
+4
+
+A pergunta é ampla pois existem muitos caminhos para se implementar um sistema de controle de permissões. Mesmo assim, vou tentar mostrar um dos caminhos possíveis, em linhas gerais.
+
+O controle de permissões leva em conta quem acessa (usuários e/ou grupos), o que é acessado (páginas, partes de páginas, campos de formulário etc) e, muitas vezes, como isso pode ser acessado (por exemplo, no caso de campos, se o acesso é somente leitura).
+
+Levando isso em conta, o primeiro passo é modelar sua base de dados para comportar essas entidades. No mínimo será necessário uma tabela de usuários, uma tabela de "acessíveis" (os objetos com permissão controlada), e uma tabela de permissões relacionando os dois, registrando quem tem acesso a quê.
+
+Modelada a base, eu criaria uma camada de abstração do controle de acesso, no seu caso em PHP, de modo que fique simples para o desenvolvedor "perguntar" ao sistema se determinado usuário possui acesso a determinado objeto. Considerando seu exemplo, ao montar o HTML da view de pesquisa, você poderia fazer algo assim:
+
+if(acesso->permitido($id_usuario, 'busca_cpf')) {
+    // Desenha o campo de busca por CPF
+}
+Naturalmente o controle de acesso não deve ser feito só na view. No código que de fato efetua a busca, é recomendável fazer a mesma verificação ao receber um CPF para busca, antes de montar a consulta que traz os registros por CPF. Desta maneira, se algum usuário sem acesso tentar enganar o sistema passando um CPF, a busca não seria feita.
+
+
+
+=============================
+
+
+Criando a Tabela MySQL
+
+Você pode executar esse código MySQL para criar a nossa tabela de usuários que tem 7 campos: id, nome, usuario, senha, niveis, ativo e cadastro:
+
+CREATE TABLE IF NOT EXISTS `usuarios` (
+    `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `nome` VARCHAR( 50 ) NOT NULL ,
+    `usuario` VARCHAR( 25 ) NOT NULL ,
+    `senha` VARCHAR( 40 ) NOT NULL ,
+    `email` VARCHAR( 100 ) NOT NULL ,
+    `nivel` INT(1) UNSIGNED NOT NULL DEFAULT '1',
+    `ativo` BOOL NOT NULL DEFAULT '1',
+    `cadastro` DATETIME NOT NULL ,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `usuario` (`usuario`),
+    KEY `nivel` (`nivel`)
+) ENGINE=MyISAM ;
+Com isso você já tem uma tabela pronta para o nosso tutorial… Rode esse script se quiser alimentar a tabela com alguns usuários de teste:
+
+INSERT INTO `usuarios` VALUES (NULL, 'Usuário Teste', 'demo', SHA1( 'demo' ), 'usuario@demo.com.br', 1, 1, NOW( ));
+
+INSERT INTO `usuarios` VALUES (NULL, 'Administrador Teste', 'admin', SHA1( 'admin' ), 'admin@demo.com.br', 2, 1, NOW( ));
+Como vocês podem perceber, o nosso campo de senha tem 40 caracteres e quando cadastramos os usuários testes usamos SHA1(‘{senha}’) isso significa que usaremos uma senha encriptada… Se você quiser saber mais sobre sha1 veja esse artigo: Criptografia no PHP usando md5, sha1 e base64.
+
+
+O formulário de Login em XHTML
+
+Vamos criar agora o nosso formulário que será onde o visitante entrará com os dados e será mandado para a pagina validacao.php onde os dados serão validados (ohh).
+
+<!-- Formulário de Login -->
+<form action="validacao.php" method="post">
+<fieldset>
+<legend>Dados de Login</legend>
+    <label for="txUsuario">Usuário</label>
+    <input type="text" name="usuario" id="txUsuario" maxlength="25" />
+    <label for="txSenha">Senha</label>
+    <input type="password" name="senha" id="txSenha" />
+    <input type="submit" value="Entrar" />
+</fieldset>
+</form>
+Como esse artigo não é uma aula sobre formulários e método POST eu vou pular a parte que fala sobre os names desses inputs e a relação deles com o PHP em si.
+
+
+A validação dos dados
+
+Já temos o banco de dados e o formulário de login… Agora vamos começar a fazer a validação. Os próximos códigos deverão ser colocados dentro do validacao.php que irá tratar os dados recebidos do formulário:
+
+Primeiro de tudo nós precisamos verificar se o usuário de fato preencheu algo no formulário, caso contrário mandamos ele de volta para o index.php:
+
+<?php
+// Verifica se houve POST e se o usuário ou a senha é(são) vazio(s)
+
+if (!empty($_POST) AND (empty($_POST['usuario']) OR empty($_POST['senha']))) {
+    header("Location: index.php"); exit;
+}
+
+
+?>
+Com isso, todo código que vier depois desse if estará seguro de que os dados foram preenchidos no formulário.
+
+Agora nós iremos abrir uma conexão com o MySQL mas essa conexão pode ser feita de outra forma, até antes do if se você preferir… Depois de abrir a conexão nós iremos transmitir os dois valores inseridos pelo visitante (usuário e senha) para novas variáveis e usaremos o mysql_real_escape_string() para evitar erros no MySQL.
+
+<?php
+
+// Verifica se houve POST e se o usuário ou a senha é(são) vazio(s)
+if (!empty($_POST) AND (empty($_POST['usuario']) OR empty($_POST['senha']))) {
+    header("Location: index.php"); exit;
+}
+
+// Tenta se conectar ao servidor MySQL
+mysql_connect('localhost', 'root', '') or trigger_error(mysql_error());
+// Tenta se conectar a um banco de dados MySQL
+mysql_select_db('usuarios') or trigger_error(mysql_error());
+
+$usuario = mysql_real_escape_string($_POST['usuario']);
+$senha = mysql_real_escape_string($_POST['senha']);
+
+?>
+
+Agora é hora de validar os dados contra a tabela de usuários:
+
+<?php
+
+// Verifica se houve POST e se o usuário ou a senha é(são) vazio(s)
+if (!empty($_POST) AND (empty($_POST['usuario']) OR empty($_POST['senha']))) {
+    header("Location: index.php"); exit;
+}
+// Tenta se conectar ao servidor MySQL
+mysql_connect('localhost', 'root', '') or trigger_error(mysql_error());
+// Tenta se conectar a um banco de dados MySQL
+mysql_select_db('usuarios') or trigger_error(mysql_error());
+$usuario = mysql_real_escape_string($_POST['usuario']);
+$senha = mysql_real_escape_string($_POST['senha']);
+
+// Validação do usuário/senha digitados
+$sql = "SELECT `id`, `nome`, `nivel` FROM `usuarios` WHERE (`usuario` = '". $usuario ."') AND (`senha` = '". sha1($senha) ."') AND (`ativo` = 1) LIMIT 1";
+$query = mysql_query($sql);
+if (mysql_num_rows($query) != 1) {
+    // Mensagem de erro quando os dados são inválidos e/ou o usuário não foi encontrado
+    echo "Login inválido!"; exit;
+} else {
+    // Salva os dados encontados na variável $resultado
+    $resultado = mysql_fetch_assoc($query);
+}
+
+?>
+Repare que estamos buscando registros que tenham o usuário igual ao digitado pelo visitante e que tenham uma senha igual a versão SHA1 da senha digitada pelo visitante… Também buscamos apenas por registros de usuários que estejam ativos, assim quando você precisar remover um usuário do sistema, mas não pode simplesmente excluir o registro é só trocar o valor da coluna ativo pra zero. ;)
+
+A consulta gerada fica mais ou menos assim:
+
+SELECT `id`, `nome`, `nivel` FROM `usuarios` WHERE (`usuario` = 'a') AND (`senha` = 'e9d71f5ee7c92d6dc9e92ffdad17b8bd49418f98') AND (`ativo` = 1) LIMIT 1
+Depois de rodar a consulta (query) nós verificamos se o número de resultados encontrados (ou não) é diferente de um, caso seja é exibida uma mensagem de erro acompanhada de um exit que finaliza o script… Caso ele encontre apenas um resultado nós temos o nosso usuário e já puxamos o seu ID, nome e nível de acesso do banco de dados.
+
+
+Salvando os dados na sessão
+
+Agora nós precisamos salvar os dados encontrados na sessão pois eles serão utilizados mais tarde, em outras páginas e eles precisam “persistir” até lá… Depois de salvar os dados na sessão nós iremos redirecionar o visitante para uma página restrita:
+
+if (mysql_num_rows($query) != 1) {
+    // Mensagem de erro quando os dados são inválidos e/ou o usuário não foi encontrado
+    echo "Login inválido!"; exit;
+} else {
+    // Salva os dados encontados na variável $resultado
+    $resultado = mysql_fetch_assoc($query);
+    // Se a sessão não existir, inicia uma
+    if (!isset($_SESSION)) session_start();
+    // Salva os dados encontrados na sessão
+    $_SESSION['UsuarioID'] = $resultado['id'];
+    $_SESSION['UsuarioNome'] = $resultado['nome'];
+    $_SESSION['UsuarioNivel'] = $resultado['nivel'];
+    // Redireciona o visitante
+    header("Location: restrito.php"); exit;
+}
+
+Verificando se o usuário está logado
+
+Nosso sistema de login está quase completo! Agora só precisamos verificar se o usuário está logado no sistema e se o seu o nível de acesso condiz com o da página… Vamos agora escrever um pequeno bloco de PHP no início do arquivo restrito.php (que só deve ser acessado por usuários logados):
+
+<?php
+
+// A sessão precisa ser iniciada em cada página diferente
+if (!isset($_SESSION)) session_start();
+
+// Verifica se não há a variável da sessão que identifica o usuário
+if (!isset($_SESSION['UsuarioID'])) {
+    // Destrói a sessão por segurança
+    session_destroy();
+    // Redireciona o visitante de volta pro login
+    header("Location: index.php"); exit;
+}
+
+?>
+
+<h1>Página restrita</h1>
+
+<p>Olá, <?php echo $_SESSION['UsuarioNome']; ?>!</p>
+Pronto meu amigo! O seu sistema de login está pronto para funcionar… Só vamos fazer alguns incrementos para ele ficar mais “usável”… Agora você vai ver como fazer a verificação de usuário logado e de nível de acesso, por exemplo para uma página onde apenas os administradores possam ter acesso:
+
+<?php
+
+// A sessão precisa ser iniciada em cada página diferente
+if (!isset($_SESSION)) session_start();
+
+$nivel_necessario = 2;
+
+// Verifica se não há a variável da sessão que identifica o usuário
+if (!isset($_SESSION['UsuarioID']) OR ($_SESSION['UsuarioNivel'] < $nivel_necessario)) {
+    // Destrói a sessão por segurança
+    session_destroy();
+    // Redireciona o visitante de volta pro login
+    header("Location: index.php"); exit;
+}
+
+?>
+
+Código de Logout
+
+O arquivo logout.php é tão simples que pode ter uma linha só:
+
+<?php session_start(); session_destroy(); header("Location: index.php"); exit; ?>
+Ou se você preferir, uma versão mais extensa:
+
+<?php
+    session_start(); // Inicia a sessão
+    session_destroy(); // Destrói a sessão limpando todos os valores salvos
+    header("Location: index.php"); exit; // Redireciona o visitante
+?>
