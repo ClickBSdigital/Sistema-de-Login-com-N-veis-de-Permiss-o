@@ -1,10 +1,5 @@
-<?php
-session_start();
-if ($_SESSION['user_tipo'] !== 'atendente' && $_SESSION['user_tipo'] !== 'supervisor' && $_SESSION['user_tipo'] !== 'administrador') {
-    header("Location: index.html");
-    exit;
-}
 ?>
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -33,5 +28,5 @@ if ($_SESSION['user_tipo'] !== 'atendente' && $_SESSION['user_tipo'] !== 'superv
             <a href="index.html">Sair</a>
         </button>
     </div>
-</body>
+</head>
 </html>

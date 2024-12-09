@@ -1,6 +1,7 @@
 <?php
 session_start();
-if ($_SESSION['user_tipo'] !== 'supervisor' && $_SESSION['user_tipo'] !== 'administrador') {
+
+if (!isset($_SESSION['user_id']) || ($_SESSION['user_tipo'] !== 'supervisor' && $_SESSION['user_tipo'] !== 'administrador')) {
     header("Location: index.html");
     exit;
 }
@@ -34,4 +35,5 @@ if ($_SESSION['user_tipo'] !== 'supervisor' && $_SESSION['user_tipo'] !== 'admin
         </button>
     </div>
 </body>
+</head>
 </html>

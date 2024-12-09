@@ -1,6 +1,7 @@
 <?php
 session_start();
-if ($_SESSION['user_tipo'] !== 'administrador') {
+
+if (!isset($_SESSION['user_id']) || $_SESSION['user_tipo'] !== 'administrador') {
     header("Location: index.html");
     exit;
 }
@@ -8,6 +9,7 @@ if ($_SESSION['user_tipo'] !== 'administrador') {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+    
     <meta charset="UTF-8">
     <title>Painel do Administrador</title>
     <link rel="stylesheet" href="styles.css">
